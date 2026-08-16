@@ -1,0 +1,78 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <DHTesp.h>
+
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+String apiKey = "WYGKU8JG7PTCMEYG";
+
+DHTesp dht;
+
+const int DHT_PIN = 32;
+const int LDR_PIN = 34;
+
+void setup() {
+  Serial.begin(115200);
+
+  // Initialize DHT22
+  dht.setup(DHT_PIN, DHTesp::DHT22);
+
+  // Configure LDR
+  pinMode(LDR_PIN, INPUT);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+
+  Serial.print("Connecting to WiFi");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.println("WiFi Connected");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+
+  // Read DHT22
+  TempAndHumidity data = dht.getTempAndHumidity();
+
+  float temp = data.temperature;
+  float hum = data.humidity;
+
+  // Read LDR
+  int light = analogRead(LDR_PIN);
+
+  // Display sensor values
+  Serial.println("--------------------");
+  Serial.println("Temperature: " + String(temp) + " °C");
+  Serial.println("Humidity: " + String(hum) + " %");
+  Serial.println("Light: " + String(light));
+
+  // Send data to ThingSpeak
+  if (WiFi.status() == WL_CONNECTED) {
+
+    HTTPClient http;
+
+    String url = "http://api.thingspeak.com/update?api_key=" + apiKey +
+                 "&field1=" + String(temp) +
+                 "&field2=" + String(hum) +
+                 "&field3=" + String(light);
+
+    http.begin(url);
+
+    int httpCode = http.GET();
+
+    Serial.println("HTTP Response: " + String(httpCode));
+
+    http.end();
+  }
+
+  // ThingSpeak requires at least 15 seconds between updates
+  delay(20000);
+}
